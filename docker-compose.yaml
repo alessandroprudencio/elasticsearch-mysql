@@ -1,0 +1,53 @@
+version: "3" 
+services: 
+  # add this: 
+    elasticsearch:
+      platform: linux/amd64
+      image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+      container_name: sem_elasticsearch
+      environment:
+        - discovery.type=single-node
+        - bootstrap.memory_lock=true
+        - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+        - xpack.security.transport.ssl.enabled=false
+        - xpack.monitoring.enabled=true
+        - sxpack.security.criptografiaKey=something_at_least_32_characters
+        # - xpack.security.enabled=true
+        # - ELASTIC_PASSWORD=my_own_password
+      volumes:
+        - ./volumes/elasticsearch:/usr/share/elasticsearch/data
+      logging:
+          driver: "json-file"
+          options:
+              max-size: "10k"
+              max-file: "10"
+      ports:
+        - 9200:9200
+        - 9300:9300
+    kibana:
+      platform: linux/amd64
+      image: docker.elastic.co/kibana/kibana:7.17.0
+      container_name: sem_kibana
+      environment:
+        - "ELASTICSEARCH_URL=http://192.168.2.51:9200"
+        - "SERVER_NAME=127.0.0.1"
+        - "INTERACTIVESETUP_ENABLED=false"
+      ports:
+        - 5601:5601
+      depends_on:
+        - elasticsearch
+
+    logstash:
+      platform: linux/amd64
+      build:
+        context: .
+        dockerfile: Dockerfile-logstash
+      container_name: sem_logstash
+      depends_on:
+        # - mysql
+        - elasticsearch
+      volumes:
+        - ./volumes/logstash/pipeline/:/usr/share/logstash/pipeline/
+        - ./volumes/logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+        - ./volumes/logstash/config/queries/:/usr/share/logstash/config/queries/
+        # We will explain why and how to add volumes below
